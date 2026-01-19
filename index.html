@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Açougue Portal - Oferta do Dia</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            background: rgba(0,0,0,0.9);
+            border: 3px solid #654321;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            position: relative;
+        }
+        .header {
+            position: absolute;
+            top: -20px;
+            left: 20px;
+            background: #222;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-transform: uppercase;
+        }
+        .oferta-section {
+            flex: 0 0 300px;
+            background: linear-gradient(135deg, #ffcc00, #ff9900);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .oferta-title { font-size: 1.6em; font-weight: bold; color: #c00; margin: 10px 0; }
+        .oferta-image { width: 100%; max-width: 250px; border-radius: 10px; margin: 10px auto; }
+        .oferta-price { font-size: 2.8em; font-weight: bold; color: #c00; margin: 15px 0; }
+        .oferta-unit { font-size: 0.8em; color: #333; background: white; padding: 2px 8px; border-radius: 5px; font-weight: bold; }
+        .menu-section { flex: 1; display: flex; gap: 20px; }
+        .category { flex: 1; background: rgba(30,30,30,0.9); padding: 15px; border-radius: 10px; }
+        .category-title { font-size: 1.2em; font-weight: bold; text-align: center; margin-bottom: 15px; color: #ffcc00; border-bottom: 2px solid #ffcc00; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #444; }
+        td:last-child { text-align: right; color: #ffcc00; font-weight: bold; }
+        .supermarket-tag {
+            position: absolute;
+            bottom: -20px;
+            right: 20px;
+            background: #004d00;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .loading { color: #ffcc00; text-align: center; padding: 20px; }
+        @media (max-width: 800px) {
+            .container { flex-direction: column; }
+            .oferta-section { width: 100%; }
+            .menu-section { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">OFERTA DO DIA</div>
+
+    <div class="oferta-section" id="oferta-container">
+        <div class="loading">Carregando...</div>
+    </div>
+
+    <div class="menu-section">
+        <div class="category">
+            <div class="category-title">BOVINOS</div>
+            <table id="bovinos-table"><tr><td colspan="2" class="loading">Carregando...</td></tr></table>
+        </div>
+        <div class="category">
+            <div class="category-title">SUÍNOS</div>
+            <table id="suinos-table"><tr><td colspan="2" class="loading">Carregando...</td></tr></table>
+        </div>
+    </div>
+
+    <div class="supermarket-tag">Dentro do Supermercado Portal</div>
+</div>
+
+<script>
+    // 🔑 SUBSTITUA PELO SEU ID DA PLANILHA DO GOOGLE
+    const SPREADSHEET_ID = 'SEU_ID_AQUI';
+
+    async function fetchSheet(range) {
+        const url = `https://docs.google.com/spreadsheets/d/e/${SPREADSHEET_ID}/pub?output=csv&range=${range}`;
+        const res = await fetch(url);
+        const text = await res.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map(h => h.trim());
+        return lines.slice(1).map(line => {
+            const vals = line.split(',').map(v => v.trim().replace(/^"(.*)"$/, '$1'));
+            const obj = {};
+            headers.forEach((h, i) => obj[h] = vals[i] || '');
+            return obj;
+        });
+    }
+
+    function renderOffers(ofertas) {
+        const container = document.getElementById('oferta-container');
+        if (ofertas.length === 0) {
+            container.innerHTML = '<div class="loading">Sem ofertas</div>';
+            return;
+        }
+        const o = ofertas[0];
+        const imgPath = o.imagem || 'placeholder.jpg';
+        container.innerHTML = `
+            <div class="oferta-title">${o.nome || ''}</div>
+            <img src="${imgPath}" alt="${o.nome || ''}" class="oferta-image" onerror="this.src='placeholder.jpg'">
+            <div class="oferta-price">${o.preco || '0,00'}</div>
+            <div class="oferta-unit">/ KG</div>
+        `;
+    }
+
+    function renderTable(data, tableId) {
+        const table = document.getElementById(tableId);
+        if (!data || data.length === 0) {
+            table.innerHTML = '<tr><td colspan="2">Sem dados</td></tr>';
+            return;
+        }
+        table.innerHTML = data.map(item => 
+            `<tr><td>${item.corte || item.nome || ''}</td><td>${item.preco || ''}</td></tr>`
+        ).join('');
+    }
+
+    async function updateData() {
+        try {
+            const ofertas = await fetchSheet('ofertas');
+            const bovinos = await fetchSheet('bovinos');
+            const suinos = await fetchSheet('suinos');
+
+            renderOffers(ofertas);
+            renderTable(bovinos, 'bovinos-table');
+            renderTable(suinos, 'suinos-table');
+        } catch (e) {
+            console.error(e);
+            document.getElementById('oferta-container').innerHTML = '<div class="loading">Erro ao carregar</div>';
+        }
+    }
+
+    updateData();
+    setInterval(updateData, 60000); // Atualiza a cada 60s
+</script>
+
+</body>
+</html>
